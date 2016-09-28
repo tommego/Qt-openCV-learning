@@ -1,11 +1,10 @@
+#include "widget.h"
 #include <QApplication>
-#include "../Widgets/abstractcvvideowidget.h"
-using namespace cv;
 
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
-    AbstractCVVideoWidget w;
+    Widget w;
     w.show();
 
     return a.exec();

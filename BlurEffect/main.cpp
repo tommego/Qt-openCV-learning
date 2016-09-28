@@ -1,11 +1,10 @@
 #include <QApplication>
-#include "../Widgets/abstractcvvideowidget.h"
-using namespace cv;
+#include "./blurwidget.h"
 
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
-    AbstractCVVideoWidget w;
+    BlurWidget w;
     w.show();
 
     return a.exec();

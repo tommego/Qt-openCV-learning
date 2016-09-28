@@ -1,6 +1,8 @@
-SOURCES += $$PWD/widget.cpp \
+SOURCES += \
     $$PWD/cvvideo.cpp \
-    $$PWD/cvvideowidget.cpp
-HEADERS += $$PWD/widget.h \
+    $$PWD/cvvideowidget.cpp \
+    $$PWD/abstractcvvideowidget.cpp
+HEADERS += \
     $$PWD/cvvideo.h \
-    $$PWD/cvvideowidget.h
+    $$PWD/cvvideowidget.h \
+    $$PWD/abstractcvvideowidget.h

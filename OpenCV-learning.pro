@@ -10,3 +10,5 @@ SUBDIRS += \
     VideoTest \
     HelloOpenCV \
     ErodeEffect \
+    CannyEffect \
+    BlurEffect
