@@ -12,16 +12,17 @@ class AbstractCVVideoWidget : public QWidget
     Q_OBJECT
 public:
     explicit AbstractCVVideoWidget(QWidget *parent = 0);
+    ~AbstractCVVideoWidget();
     void initUI();
     void initConnections();
     void setFrame(const QPixmap& pixmap);
     virtual bool updateFrame(const Mat& frameData);
+    CVVideo *video();
 
 signals:
 
 public slots:
     void requestUpdateFrame(const Mat& frameData);
-protected:
 
 private:
     CVVideo m_video;

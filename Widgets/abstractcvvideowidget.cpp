@@ -6,6 +6,14 @@ AbstractCVVideoWidget::AbstractCVVideoWidget(QWidget *parent) : QWidget(parent)
     initConnections();
 }
 
+AbstractCVVideoWidget::~AbstractCVVideoWidget()
+{
+    if(m_video.isRunning()){
+        m_video.setIsWorking(false);
+        m_video.deleteLater();
+    }
+}
+
 void AbstractCVVideoWidget::initUI()
 {
     m_layout = new QVBoxLayout;
@@ -35,4 +43,9 @@ bool AbstractCVVideoWidget::updateFrame(const Mat &frameData)
     const QPixmap& pixmap = QPixmap::fromImage(img.scaled(QSize(1200,800),Qt::KeepAspectRatio,Qt::SmoothTransformation));
     setFrame(pixmap);
     return true;
+}
+
+CVVideo *AbstractCVVideoWidget::video()
+{
+    return &m_video;
 }

@@ -11,4 +11,6 @@ SUBDIRS += \
     HelloOpenCV \
     ErodeEffect \
     CannyEffect \
-    BlurEffect
+    BlurEffect \
+    face-detection \
+    face-detect-official

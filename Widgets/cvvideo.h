@@ -13,6 +13,12 @@ class CVVideo : public QThread
 public:
     explicit CVVideo(QObject *parent = 0);
 
+    bool isWorking() const;
+    void setIsWorking(bool isWorking);
+
+    int rate() const;
+    void setRate(int rate);
+
 signals:
     void frameChanged(const Mat& frame);
 
@@ -20,6 +26,9 @@ public slots:
 
 protected:
     void run();
+private:
+    bool m_isWorking;
+    int m_rate;
 
 };
 
