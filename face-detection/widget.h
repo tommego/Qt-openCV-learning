@@ -2,9 +2,19 @@
 #define WIDGET_H
 
 #include <QWidget>
-#include "../Widgets/abstractcvvideowidget.h"
+#include <QThread>
+
+#include <../Widgets/videowidget.h>
 
 #include "opencv2/objdetect/objdetect.hpp"
+
+struct FaceData{
+    QRect face;
+    QList<QRect> eyes;
+};
+Q_DECLARE_METATYPE(FaceData)
+
+typedef QList<FaceData> FaceList;
 
 class DetectFacesWorker: public QObject{
     Q_OBJECT
@@ -12,7 +22,8 @@ class DetectFacesWorker: public QObject{
         DetectFacesWorker(QObject* parent = 0);
     void detectFace(Mat frame);
 signals:
-    void frameDetected(const QPixmap& pixmap);
+
+    void frameDetected(const FaceList& faces);
 
 private:
     CascadeClassifier face_cascade;
@@ -21,19 +32,27 @@ private:
     QString eyes_cascade_source;
 };
 
-class Widget : public AbstractCVVideoWidget
+
+class Widget : public VideoWidget
 {
     Q_OBJECT
 
 public:
     explicit Widget(QWidget* parent = 0);
-    bool updateFrame(const Mat &frameData);
+    ~Widget();
+    void initConnect();
+    void detectFace(const Mat& frame);
 
 public slots:
-    void onframeReady(const QPixmap& frame);
+
+protected:
+    void paintEvent(QPaintEvent *e) Q_DECL_OVERRIDE;
 
 private:
-    Mat m_frame;
+    QThread m_workerThread;
+    FaceList m_faces;
+
+    QRect mirroredRect(const QRect& rect);
 };
 
 #endif // WIDGET_H

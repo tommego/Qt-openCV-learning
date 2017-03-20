@@ -13,4 +13,5 @@ SUBDIRS += \
     CannyEffect \
     BlurEffect \
     face-detection \
-    face-detect-official
+    face-detect-official \
+    VideoWidgetTest

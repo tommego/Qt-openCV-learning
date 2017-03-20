@@ -2,33 +2,73 @@
 #include <QDebug>
 #include <QtConcurrent>
 #include <QMutex>
+#include <QPen>
+#include <QPainter>
 
 Widget::Widget(QWidget *parent):
-    AbstractCVVideoWidget(parent)
+    VideoWidget(parent)
 {
-    this->video()->setRate(1000);
+    initConnect();
 }
 
-bool Widget::updateFrame(const Mat &frameData){
+void Widget::initConnect()
+{
+    qRegisterMetaType<FaceList>();
+    connect(this, &Widget::frameUpdate, this, &Widget::detectFace);
+}
 
-    QThread* workerThread = new QThread;
+void Widget::detectFace(const Mat &frame)
+{
+    if(m_workerThread.isRunning())
+        return;
+
     DetectFacesWorker* worker = new DetectFacesWorker;
+    worker->moveToThread(&m_workerThread);
 
-    worker->moveToThread(workerThread);
-    connect(worker, &DetectFacesWorker::frameDetected, this, &Widget::onframeReady);
-    connect(workerThread, &QThread::finished, workerThread, &QThread::deleteLater);
-    connect(workerThread, &QThread::finished, [=]{
-        workerThread->deleteLater();
+    connect(&m_workerThread, &QThread::finished, worker, &DetectFacesWorker::deleteLater);
+    connect(worker, &DetectFacesWorker::frameDetected, [=](const FaceList& faces){
+        m_faces = faces;
     });
 
-    workerThread->start();
-    worker->detectFace(frameData);
-    return true;
+    m_workerThread.start();
+    worker->detectFace(frame);
 }
 
-void Widget::onframeReady(const QPixmap &frame)
+void Widget::paintEvent(QPaintEvent *e)
 {
-    setFrame(frame);
+    VideoWidget::paintEvent(e);
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing);
+    QPen pen;
+
+    foreach (const FaceData& face, m_faces) {
+        //draw face
+        QRect faceRect = mirroredRect(face.face);
+        int radius = qMin(faceRect.width(), faceRect.height())/2;
+
+        pen.setColor(QColor("#12aadf"));
+        painter.setPen(pen);
+        painter.drawRoundedRect(faceRect, radius, radius);
+
+        foreach (const QRect& eyesRect, face.eyes) {
+            QRect rect = mirroredRect(eyesRect);
+            int radius = qMin(rect.width(), rect.height())/2;
+
+            pen.setColor(QColor("#aadf12"));
+            painter.setPen(pen);
+            painter.drawRoundedRect(rect, radius, radius);
+        }
+    }
+}
+
+QRect Widget::mirroredRect(const QRect &rect)
+{
+    return QRect(this->width() - rect.x() - rect.width(), rect.y(), rect.width(), rect.height());
+}
+
+Widget::~Widget(){
+    m_workerThread.quit();
+    m_workerThread.wait();
 }
 
 DetectFacesWorker::DetectFacesWorker(QObject *parent):
@@ -47,39 +87,38 @@ DetectFacesWorker::DetectFacesWorker(QObject *parent):
 
 void DetectFacesWorker::detectFace(Mat frame)
 {
-    QMutex mutex;
-    mutex.lock();
-    std::vector<Rect> faces;
-    Mat frame_gray;
+    QtConcurrent::run([=]{
+        std::vector<Rect> faces;
+        Mat frame_gray;
 
-    cvtColor( frame, frame_gray, COLOR_BGR2GRAY );
-    equalizeHist( frame_gray, frame_gray );
+        cvtColor( frame, frame_gray, COLOR_BGR2GRAY );
+        equalizeHist( frame_gray, frame_gray );
 
-    //-- Detect faces
-    face_cascade.detectMultiScale( frame_gray, faces, 1.1, 2, 0|CASCADE_SCALE_IMAGE, Size(30, 30) );
+        //-- Detect faces
+        face_cascade.detectMultiScale( frame_gray, faces, 1.1, 2, 0|CASCADE_SCALE_IMAGE, Size(30, 30) );
 
-    for ( size_t i = 0; i < faces.size(); i++ )
-    {
-        Point center( faces[i].x + faces[i].width/2, faces[i].y + faces[i].height/2 );
-        ellipse( frame, center, Size( faces[i].width/2, faces[i].height/2 ), 0, 0, 360, Scalar( 255, 0, 255 ), 4, 8, 0 );
+        FaceList faceList;
 
-        Mat faceROI = frame_gray( faces[i] );
-        std::vector<Rect> eyes;
-
-        //-- In each face, detect eyes
-        eyes_cascade.detectMultiScale( faceROI, eyes, 1.1, 2, 0 |CASCADE_SCALE_IMAGE, Size(30, 30) );
-
-        for ( size_t j = 0; j < eyes.size(); j++ )
+        FaceData face;
+        face.face = QRect(-1, -1, -1, -1);
+        for ( size_t i = 0; i < faces.size(); i++ )
         {
-            Point eye_center( faces[i].x + eyes[j].x + eyes[j].width/2, faces[i].y + eyes[j].y + eyes[j].height/2 );
-            int radius = cvRound( (eyes[j].width + eyes[j].height)*0.25 );
-            circle( frame, eye_center, radius, Scalar( 255, 0, 0 ), 4, 8, 0 );
+            face.face = QRect(faces[i].x, faces[i].y, faces[i].width, faces[i].height);
+            Mat faceROI = frame_gray( faces[i] );
+            std::vector<Rect> eyes;
+
+            //-- In each face, detect eyes
+            eyes_cascade.detectMultiScale( faceROI, eyes, 1.1, 2, 0 |CASCADE_SCALE_IMAGE, Size(30, 30) );
+
+            for ( size_t j = 0; j < eyes.size(); j++ )
+            {
+                if(j >= 2)
+                    continue;
+                face.eyes.append(QRect(faces[i].x + eyes[j].x, faces[i].y + eyes[j].y, eyes[j].width, eyes[j].height));
+            }
         }
-    }
-
-    QImage img(frame.data,frame.size().width,frame.size().height,QImage::Format_RGB888);
-    const QPixmap& pixmap = QPixmap::fromImage(img);
-
-    emit frameDetected(pixmap);
-    mutex.unlock();
+        faceList << face;
+        emit frameDetected(faceList);
+        thread()->quit();
+    });
 }
